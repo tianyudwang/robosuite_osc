@@ -72,6 +72,8 @@ class Discriminator(nn.Module):
                 rewards = -self.softplus(logits)
             elif self.reward_type == 'AIRL':
                 rewards = -logits
+            elif self.reward_type == 'VMAIL':
+                rewards = self.sigmoid(-logits)
             else:
                 assert False
         return rewards

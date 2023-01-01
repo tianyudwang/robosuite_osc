@@ -84,8 +84,8 @@ class LAPAL_Agent:
                 self.perform_logging(self.policy)
             self.logger.dump(step=self.timesteps)
 
-            if self.timesteps % self.params['evaluation']['save_interval'] < self.params['generator']['batch_size']:
-                self.save_models()
+            # if self.timesteps % self.params['evaluation']['save_interval'] < self.params['generator']['batch_size']:
+            #     self.save_models()
         
     def load_demo_samples_to_agent(self):
         n_envs = self.params['n_envs']

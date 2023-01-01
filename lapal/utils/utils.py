@@ -169,12 +169,13 @@ def check_demo_performance(paths, top_num):
     lens = [len(path) for path in paths]
     print(f"Demonstration length {np.mean(lens):.2f} +/- {np.std(lens):.2f}")
     print(f"Demonstration return {np.mean(returns):.2f} +/- {np.std(returns):.2f}")
+    return paths
 
 def collect_demo_trajectories(env: gym.Env, expert_policy: str, batch_size: int):
     expert_policy = SAC.load(expert_policy)
     print('\nRunning expert policy to collect demonstrations...')
     demo_paths = sample_trajectories(env, expert_policy, batch_size*2)
-    check_demo_performance(demo_paths, batch_size)
+    demo_paths = check_demo_performance(demo_paths, batch_size)
     return demo_paths
 
 

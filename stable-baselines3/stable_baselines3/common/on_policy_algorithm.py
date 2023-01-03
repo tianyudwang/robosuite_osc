@@ -71,8 +71,6 @@ class OnPolicyAlgorithm(BaseAlgorithm):
         _init_setup_model: bool = True,
         supported_action_spaces: Optional[Tuple[gym.spaces.Space, ...]] = None,
         reward: Callable[[np.ndarray, np.ndarray], np.ndarray] = None,
-        lat_dim: int = -1,
-        obs_step: Callable[[List[np.ndarray]], np.ndarray] = None,
     ):
 
         super(OnPolicyAlgorithm, self).__init__(
@@ -89,7 +87,6 @@ class OnPolicyAlgorithm(BaseAlgorithm):
             seed=seed,
             tensorboard_log=tensorboard_log,
             supported_action_spaces=supported_action_spaces,
-            lat_dim=lat_dim,
         )
 
         self.n_steps = n_steps
@@ -100,9 +97,8 @@ class OnPolicyAlgorithm(BaseAlgorithm):
         self.max_grad_norm = max_grad_norm
         self.rollout_buffer = None
 
-        # For using PPO in VAE+GAIL
+        # Recompute reward for PPO in GAIL
         self.reward = reward
-        self.obs_step = obs_step
 
         if _init_setup_model:
             self._setup_model()
@@ -168,21 +164,12 @@ class OnPolicyAlgorithm(BaseAlgorithm):
                 # Sample a new noise matrix
                 self.policy.reset_noise(env.num_envs)
 
-            # Reset latent posterior if previous episode is done
-            # Compute latent posterior from observation, previous action, previous latent
-            if self._lat_dim > 0:
-                self._last_lats[self._last_episode_starts] = 0
-                self._last_acts[self._last_episode_starts] = 0
-                lats = self.obs_step(self._last_obs, self._last_lats, self._last_acts)
 
             with th.no_grad():
                 # Convert to pytorch tensor or to TensorDict
-                if self._lat_dim > 0:
-                    lats_mean, _ = np.split(lats, 2, axis=-1)
-                    obs_tensor = obs_as_tensor(lats_mean, self.device)
-                else:
-                    obs_tensor = obs_as_tensor(self._last_obs, self.device)
+                obs_tensor = obs_as_tensor(self._last_obs, self.device)
                 actions, values, log_probs = self.policy(obs_tensor)
+                act_tensor = actions
             actions = actions.cpu().numpy()
 
             # Rescale and perform action
@@ -190,8 +177,15 @@ class OnPolicyAlgorithm(BaseAlgorithm):
             # Clip the actions to avoid out of bound error
             if isinstance(self.action_space, gym.spaces.Box):
                 clipped_actions = np.clip(actions, self.action_space.low, self.action_space.high)
+                clipped_actions_tensor = th.clamp(act_tensor, -1, 1)
 
             new_obs, rewards, dones, infos = env.step(clipped_actions)
+
+            # Update rewards with 
+            if self.reward is not None:
+                with th.no_grad():
+                    rewards = self.reward(obs_tensor, clipped_actions_tensor)
+                rewards = np.squeeze(rewards.cpu().numpy(), axis=1)
 
             self.num_timesteps += env.num_envs
 
@@ -215,39 +209,19 @@ class OnPolicyAlgorithm(BaseAlgorithm):
                     and infos[idx].get("terminal_observation") is not None
                     and infos[idx].get("TimeLimit.truncated", False)
                 ):  
-                    if self._lat_dim > 0:
-                        new_lats = self.obs_step(infos[idx]["terminal_observation"], lats[idx], actions[idx])
-                        new_lats_mean, _ = np.split(new_lats, 2, axis=-1)
-                        terminal_obs = self.policy.obs_to_tensor(new_lats_mean)[0]
-                    else:
-                        terminal_obs = self.policy.obs_to_tensor(infos[idx]["terminal_observation"])[0]
+                    terminal_obs = self.policy.obs_to_tensor(infos[idx]["terminal_observation"])[0]
                     with th.no_grad():
                         terminal_value = self.policy.predict_values(terminal_obs)[0]
                     rewards[idx] += self.gamma * terminal_value
 
-            if self._lat_dim > 0:
-                last_lats_mean, _ = np.split(self._last_lats, 2, axis=-1)
-                rollout_buffer.add(last_lats_mean, actions, rewards, self._last_episode_starts, values, log_probs)
-            else:
-                rollout_buffer.add(self._last_obs, actions, rewards, self._last_episode_starts, values, log_probs)
+            rollout_buffer.add(self._last_obs, actions, rewards, self._last_episode_starts, values, log_probs)
             self._last_obs = new_obs
             self._last_episode_starts = dones
             
-            if self._lat_dim > 0:
-                self._last_lats = lats
-                self._last_acts = actions
-
-        # Recompute learned reward
-        reward = self.reward(rollout_buffer.observations, rollout_buffer.actions)
 
         with th.no_grad():
             # Compute value for the last timestep
-            if self._lat_dim > 0:
-                new_lats = self.obs_step(new_obs, lats, actions)
-                new_lats_mean, _ = np.split(new_lats, 2, axis=-1)
-                values = self.policy.predict_values(obs_as_tensor(new_lats_mean, self.device))
-            else:
-                values = self.policy.predict_values(obs_as_tensor(new_obs, self.device))
+            values = self.policy.predict_values(obs_as_tensor(new_obs, self.device))
 
         rollout_buffer.compute_returns_and_advantage(last_values=values, dones=dones)
 
@@ -277,7 +251,8 @@ class OnPolicyAlgorithm(BaseAlgorithm):
         iteration = 0
 
         total_timesteps, callback = self._setup_learn(
-            total_timesteps, eval_env, callback, eval_freq, n_eval_episodes, eval_log_path, reset_num_timesteps, tb_log_name
+            total_timesteps, eval_env, callback, eval_freq, n_eval_episodes, 
+            eval_log_path, reset_num_timesteps, tb_log_name
         )
 
         callback.on_training_start(locals(), globals())

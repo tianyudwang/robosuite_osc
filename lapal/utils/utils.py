@@ -11,7 +11,7 @@ import robosuite as suite
 from robosuite.wrappers import GymWrapper
 # from robosuite.utils.mjcf_utils import postprocess_model_xml
 
-from stable_baselines3 import SAC
+from stable_baselines3 import SAC, PPO
 from stable_baselines3.sac.policies import Actor
 from stable_baselines3.common.off_policy_algorithm import OffPolicyAlgorithm
 from stable_baselines3.common.vec_env import VecEnv, SubprocVecEnv
@@ -42,15 +42,15 @@ def make_robosuite_env(env_name=None):
         # 'gripper_to_cube_pos',
         'object-state',
     ]
-    print('----------'*10)
-    print(f"Task: {env_name}")
-    print("Original observation keys and shapes:")
-    for k, v in env.reset().items():
-        print(k, v.shape)
-    print('----------'*10)
-    print(f"New observation keys:")
-    for k in obs_keys:
-        print(k)
+    # print('----------'*10)
+    # print(f"Task: {env_name}")
+    # print("Original observation keys and shapes:")
+    # for k, v in env.reset().items():
+    #     print(k, v.shape)
+    # print('----------'*10)
+    # print(f"New observation keys:")
+    # for k in obs_keys:
+    #     print(k)
     env = GymWrapper(env, keys=obs_keys)
     return env
 
@@ -158,23 +158,27 @@ def check_demo_performance(paths, top_num):
     print(f"Demonstration length {np.mean(lens):.2f} +/- {np.std(lens):.2f}")
     print(f"Demonstration return {np.mean(returns):.2f} +/- {np.std(returns):.2f}")
 
-    print(f"Using {top_num} best trajectories")
-    new_paths = []
-    for i, ret in enumerate(returns):
-        if ret > 900:
-            new_paths.append(paths[i])
-    paths = new_paths[:top_num]
+    # print(f"Using {top_num} best trajectories")
+    # new_paths = []
+    # for i, ret in enumerate(returns):
+    #     if ret > 900:
+    #         new_paths.append(paths[i])
+    # paths = new_paths[:top_num]
 
-    returns = [path.rewards.sum() for path in paths]
-    lens = [len(path) for path in paths]
-    print(f"Demonstration length {np.mean(lens):.2f} +/- {np.std(lens):.2f}")
-    print(f"Demonstration return {np.mean(returns):.2f} +/- {np.std(returns):.2f}")
+    # returns = [path.rewards.sum() for path in paths]
+    # lens = [len(path) for path in paths]
+    # print(f"Demonstration length {np.mean(lens):.2f} +/- {np.std(lens):.2f}")
+    # print(f"Demonstration return {np.mean(returns):.2f} +/- {np.std(returns):.2f}")
     return paths
 
 def collect_demo_trajectories(env: gym.Env, expert_policy: str, batch_size: int):
-    expert_policy = SAC.load(expert_policy)
+    policy_cls = expert_policy.split('/')[-1].split('_')[0]
+    if policy_cls == 'SAC':
+        expert_policy = SAC.load(expert_policy)
+    elif policy_cls == 'PPO':
+        expert_policy = PPO.load(expert_policy)
     print('\nRunning expert policy to collect demonstrations...')
-    demo_paths = sample_trajectories(env, expert_policy, batch_size*2)
+    demo_paths = sample_trajectories(env, expert_policy, batch_size)
     demo_paths = check_demo_performance(demo_paths, batch_size)
     return demo_paths
 

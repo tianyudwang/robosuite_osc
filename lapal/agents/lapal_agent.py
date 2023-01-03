@@ -68,16 +68,20 @@ class LAPAL_Agent:
                 self.pretrain_ac_vae() 
 
         # Warm up generator replay buffer
-        self.policy.learn(total_timesteps=self.params['generator']['learning_starts'])
+        # self.policy.learn(total_timesteps=self.params['generator']['learning_starts'])
 
         self.timesteps = 0
         while self.timesteps < self.params['total_timesteps']:
-            self.train_generator()
+            if self.params['generator']['type'] == 'SAC':
+                timesteps = self.params['generator']['batch_size']
+            elif self.params['generator']['type'] == 'PPO':
+                timesteps = self.params['generator']['n_steps'] * self.params['n_envs']
+            self.train_generator(timesteps)
 
             if self.use_disc:
                 self.train_discriminator()
 
-            self.timesteps += self.params['generator']['batch_size']
+            self.timesteps += timesteps
 
             # Evaluation
             if self.timesteps % self.params['evaluation']['interval'] < self.params['generator']['batch_size']:
@@ -122,12 +126,12 @@ class LAPAL_Agent:
             self.logger.dump(step=i)
 
 
-    def train_generator(self):
+    def train_generator(self, timesteps):
         """
         Train the policy/actor using learned reward
         """
         self.policy.learn(
-            total_timesteps=self.params['generator']['batch_size'], 
+            total_timesteps=timesteps, 
             reset_num_timesteps=False
         )
 
@@ -147,7 +151,10 @@ class LAPAL_Agent:
             train_args += (demo_acs,)
 
         # Agent buffer contains ob, ac in original space
-        agent_transitions = self.policy.replay_buffer.sample(batch_size)
+        if self.params['generator']['type'] == 'SAC':
+            agent_transitions = self.policy.replay_buffer.sample(batch_size)
+        elif self.params['generator']['type'] == 'PPO':
+            agent_transitions = next(self.policy.rollout_buffer.get(batch_size))
         agent_obs = agent_transitions.observations.float()
         agent_acs = agent_transitions.actions.float()
         train_args += (agent_obs,)

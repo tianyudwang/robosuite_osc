@@ -98,8 +98,6 @@ class PPO(OnPolicyAlgorithm):
         device: Union[th.device, str] = "auto",
         _init_setup_model: bool = True,
         reward: Callable[[np.ndarray, np.ndarray], np.ndarray] = None,
-        lat_dim: int = -1,
-        obs_step: Callable[[List[np.ndarray]], np.ndarray] = None,
     ):
 
         super(PPO, self).__init__(
@@ -128,8 +126,6 @@ class PPO(OnPolicyAlgorithm):
                 spaces.MultiBinary,
             ),
             reward=reward,
-            lat_dim=lat_dim,
-            obs_step=obs_step,
         )
 
         # Sanity check, otherwise it will lead to noisy gradient and NaN
@@ -305,6 +301,9 @@ class PPO(OnPolicyAlgorithm):
         self.logger.record("train/clip_range", clip_range)
         if self.clip_range_vf is not None:
             self.logger.record("train/clip_range_vf", clip_range_vf)
+
+        self.logger.record("train/current_progress_remaining", self._current_progress_remaining)
+
 
     def learn(
         self,

@@ -7,7 +7,7 @@ import gym
 
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.vec_env import SubprocVecEnv, DummyVecEnv
-from stable_baselines3.common.callbacks import EvalCallback, CheckpointCallback
+from stable_baselines3.common.callbacks import CallbackList, CheckpointCallback, EvalCallback
 
 from lapal.utils import utils
 
@@ -65,26 +65,37 @@ def build_env(env_name, n_envs, env_kwargs=None, wrapper=None, wrapper_kwargs=No
         raise ValueError('Environment {} not supported yet ...'.format(env_name))
     return env
 
-def train_policy(env, algo, policy_name, timesteps=50000, callback=None):
+def train_policy(env, eval_env, algo, policy_name, timesteps=50000):
     """
     Train the expert policy in RL
     """
     if algo == 'SAC':
         from stable_baselines3 import SAC
-
-
         model = SAC("MlpPolicy", env, verbose=1)
-        
-        from stable_baselines3.common.logger import configure
-        data_path = osp.abspath(osp.join(osp.dirname(osp.realpath(__file__)), '../../data'))
-        tmp_path = data_path + f'/{policy_name}'
-        # set up logger
-        new_logger = configure(tmp_path, ["stdout", "csv", "log", "json", "tensorboard"])
-        model.set_logger(new_logger)
-        model.learn(total_timesteps=timesteps, callback=callback)
-
+    if algo == 'DDPG':
+        from stable_baselines3 import DDPG
+        model = DDPG("MlpPolicy", env, train_freq=(4, "step"), verbose=1)  
+    if algo == 'PPO':
+        from stable_baselines3 import PPO
+        model = PPO("MlpPolicy", env, verbose=1)
     else:
         raise ValueError('RL algorithm {} not supported yet ...'.format(algo))
+
+    from stable_baselines3.common.logger import configure
+    data_path = osp.abspath(osp.join(osp.dirname(osp.realpath(__file__)), '../../data'))
+    tmp_path = data_path + f'/{policy_name}'
+    # set up logger
+    new_logger = configure(tmp_path, ["stdout", "csv", "log", "json", "tensorboard"])
+    model.set_logger(new_logger)
+
+    # callbacks
+    checkpoint_callback = CheckpointCallback(save_freq=50000, save_path=f"./{policy_name}/")
+    # Separate evaluation env
+    eval_callback = EvalCallback(eval_env, best_model_save_path=f"./{policy_name}/best_model",
+                                 log_path=f"./{policy_name}/results", eval_freq=50000)
+    callback = CallbackList([checkpoint_callback, eval_callback])
+    model.learn(total_timesteps=timesteps, callback=callback)
+
     return model
 
 
@@ -100,24 +111,19 @@ def main():
     args = parser.parse_args()
     
     train_env = build_env(args.env_name, args.n_envs)
+    eval_env = build_env(args.env_name, args.n_envs)
     print(f'Observation space: {train_env.observation_space}')
     print(f'Action space: {train_env.action_space}')
 
-    policy_name = 'SAC_Door_OSC'
+    policy_name = f"{args.algo}_{args.env_name}_OSC"
 
-    eval_env = build_env(args.env_name, 4)
-    # eval_callback = EvalCallback(
-    #     eval_env, best_model_save_path=f"./expert_models/{policy_name}",
-    #     log_path="./data/", eval_freq=50000,
-    #     n_eval_episodes=4,
-    #     deterministic=True, render=False)
     checkpoint_callback = CheckpointCallback(
         save_freq=50000,
-        save_path="./SAC_Door_OSC/",
+        save_path=f"./{policy_name}/",
         name_prefix="rl_model",
     )
 
-    model = train_policy(train_env, args.algo, policy_name, timesteps=args.total_timesteps, callback=checkpoint_callback)
+    model = train_policy(train_env, eval_env, args.algo, policy_name, timesteps=args.total_timesteps)
 
 
 if __name__ == '__main__':

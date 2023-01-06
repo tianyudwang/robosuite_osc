@@ -1,24 +1,21 @@
 env_name: Lift
-expert_policy: SAC_Lift
-use_human_demo: False
+expert_folder: ./demonstrations/Lift
 total_timesteps: 10000000
-demo_size: 64
 n_envs: 8
-ac_vae:
-  use_ac_vae: false
-  n_iters: 100000
-  latent_dim: 4
-  batch_size: 256
-  learning_rate: 3e-4
-  kl_coef: 0.001
+obs_keys:
+  - robot0_eef_pos
+  - robot0_eef_quat
+  - robot0_gripper_qpos
+  - object-state
 discriminator:
   use_disc: true
   reward_type: SOFTPLUS
   batch_size: 256
   learning_rate: 3e-6
+  spectral_norm: False
 generator:
   type: SAC
-  learning_starts: 10000
+  learning_starts: 16000
   batch_size: 256
   learning_rate: 3e-4
   gradient_steps: 1

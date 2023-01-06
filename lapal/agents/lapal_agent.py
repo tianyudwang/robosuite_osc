@@ -13,22 +13,23 @@ from lapal.utils.replay_buffer import ReplayBuffer
 from lapal.utils import utils, types
 import lapal.utils.pytorch_utils as ptu
 
-from rl_plotter.logger import Logger
+# from rl_plotter.logger import Logger
 
 class LAPAL_Agent:
     def __init__(self, 
         params, 
         venv, 
-        ac_vae, 
+        eval_venv,
         disc, 
         policy, 
         logger, 
+        expert_demo_dir
     ):
         self.params = params
 
         self.logger = logger  
         self.venv = venv
-        self.ac_vae = ac_vae
+        self.eval_venv = eval_venv
         self.disc = disc
         self.policy = policy 
 
@@ -36,39 +37,27 @@ class LAPAL_Agent:
 
         # bool
         self.use_disc = params['discriminator']['use_disc']
-        self.use_ac_vae = params['ac_vae']['use_ac_vae']
 
         # plot
-        self.rl_logger = Logger(
-            log_dir='./logs',
-            exp_name=params['suffix'],
-            env_name=params['env_name'],
-            seed=params['seed']
-        )
+        # self.rl_logger = Logger(
+        #     log_dir='./logs',
+        #     exp_name=params['suffix'],
+        #     env_name=params['env_name'],
+        #     seed=params['seed']
+        # )
+
+        self.expert_demo_dir = expert_demo_dir
 
     def train(self):
         # Run expert policy to collect demonstration paths
 
-        if self.use_disc or self.use_ac_vae:
-
-            if self.params['use_human_demo']:
-                demo_paths = utils.collect_human_trajectories(
-                    self.params['env_name'], 
-                    self.params['human_demo_filename']
-                )
-            else:
-                demo_paths = utils.collect_demo_trajectories(
-                    self.venv,
-                    self.params['expert_policy'], 
-                    self.params['demo_size']
-                )
-
+        if self.use_disc:
+            demo_paths = utils.load_episodes(self.expert_demo_dir, self.params['obs_keys'])
             self.demo_buffer.add_rollouts(demo_paths)
-            if self.use_ac_vae: 
-                self.pretrain_ac_vae() 
+            self.load_demo_samples_to_agent()
 
         # Warm up generator replay buffer
-        # self.policy.learn(total_timesteps=self.params['generator']['learning_starts'])
+        self.policy.learn(total_timesteps=self.params['generator']['learning_starts'])
 
         self.timesteps = 0
         while self.timesteps < self.params['total_timesteps']:
@@ -142,13 +131,8 @@ class LAPAL_Agent:
 
         # Demo buffer contains ob, ac in original space
         demo_transitions = self.demo_buffer.sample_random_transitions(batch_size)
-        demo_obs, demo_acs, _ = utils.extract_transitions(demo_transitions)
-        train_args += (demo_obs,)
-        if self.use_ac_vae:
-            demo_lat_acs = self.ac_vae.ac_encoder(demo_obs, demo_acs)
-            train_args += (demo_lat_acs,)
-        else:
-            train_args += (demo_acs,)
+        demo_obs, demo_acs, demo_rews, _ = utils.extract_transitions(demo_transitions)
+        train_args += (demo_obs, demo_acs,)
 
         # Agent buffer contains ob, ac in original space
         if self.params['generator']['type'] == 'SAC':
@@ -157,14 +141,10 @@ class LAPAL_Agent:
             agent_transitions = next(self.policy.rollout_buffer.get(batch_size))
         agent_obs = agent_transitions.observations.float()
         agent_acs = agent_transitions.actions.float()
-        train_args += (agent_obs,)
-        if self.use_ac_vae:
-            agent_lat_acs = self.ac_vae.ac_encoder(agent_obs, agent_acs)
-            train_args += (agent_lat_acs,)
-        else:
-            train_args += (agent_acs,)
+        train_args += (agent_obs, agent_acs,)
 
         metrics = self.disc.train(*train_args)
+        metrics.update({'expert_true_rewards': th.mean(demo_rews).item()})
 
         for k, v in metrics.items():
             self.logger.record(f"disc/{k}", v)
@@ -174,14 +154,10 @@ class LAPAL_Agent:
         #######################
         # Evaluate the agent policy in true environment
         print("\nCollecting data for eval...")
-        eval_kwargs = {}
-        if self.use_ac_vae:
-            eval_kwargs.update(dict(ac_decoder=self.ac_vae.ac_decoder))
         eval_paths = utils.sample_trajectories(
-            self.venv, 
+            self.eval_venv, 
             eval_policy, 
             self.params['evaluation']['batch_size'],
-            **eval_kwargs
         )  
 
         eval_returns = [path.rewards.sum() for path in eval_paths]
@@ -197,7 +173,7 @@ class LAPAL_Agent:
         for key, value in logs.items():
             self.logger.record(key, value)
 
-        self.rl_logger.update(score=eval_returns, total_steps=self.timesteps)
+        # self.rl_logger.update(score=eval_returns, total_steps=self.timesteps)
 
     def save_models(self):   
 

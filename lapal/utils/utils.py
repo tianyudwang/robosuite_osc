@@ -20,7 +20,7 @@ from stable_baselines3.common.env_util import make_vec_env
 from lapal.utils import pytorch_utils as ptu
 from lapal.utils import types
 
-def make_robosuite_env(env_name=None):
+def make_robosuite_env(env_name=None, obs_keys=None):
     controller_configs = suite.load_controller_config(default_controller="OSC_POSE")
     env = suite.make(
         env_name=env_name, # try with other tasks like "Stack" and "Door"
@@ -42,15 +42,6 @@ def make_robosuite_env(env_name=None):
         # 'gripper_to_cube_pos',
         'object-state',
     ]
-    # print('----------'*10)
-    # print(f"Task: {env_name}")
-    # print("Original observation keys and shapes:")
-    # for k, v in env.reset().items():
-    #     print(k, v.shape)
-    # print('----------'*10)
-    # print(f"New observation keys:")
-    # for k in obs_keys:
-    #     print(k)
     env = GymWrapper(env, keys=obs_keys)
     return env
 
@@ -150,7 +141,7 @@ def sample_trajectories(
     return paths
 
 
-def check_demo_performance(paths, top_num):
+def check_demo_performance(paths):
     assert type(paths[0]) == types.TrajectoryWithReward, "Demo path type is not types.TrajectoryWithReward"
     returns = [path.rewards.sum() for path in paths]
     lens = [len(path) for path in paths]
@@ -169,7 +160,6 @@ def check_demo_performance(paths, top_num):
     # lens = [len(path) for path in paths]
     # print(f"Demonstration length {np.mean(lens):.2f} +/- {np.std(lens):.2f}")
     # print(f"Demonstration return {np.mean(returns):.2f} +/- {np.std(returns):.2f}")
-    return paths
 
 def collect_demo_trajectories(env: gym.Env, expert_policy: str, batch_size: int):
     policy_cls = expert_policy.split('/')[-1].split('_')[0]
@@ -179,9 +169,49 @@ def collect_demo_trajectories(env: gym.Env, expert_policy: str, batch_size: int)
         expert_policy = PPO.load(expert_policy)
     print('\nRunning expert policy to collect demonstrations...')
     demo_paths = sample_trajectories(env, expert_policy, batch_size)
-    demo_paths = check_demo_performance(demo_paths, batch_size)
+    check_demo_performance(demo_paths, batch_size)
     return demo_paths
 
+
+def load_episodes(directory, obs_keys, capacity=None):
+    # The returned directory from filenames to episodes is guaranteed to be in
+    # temporally sorted order.
+    filenames = sorted(directory.glob('*.npz'))
+    if capacity:
+        num_steps = 0
+        num_episodes = 0
+        for filename in reversed(filenames):
+            length = int(str(filename).split('-')[-1][:-4])
+            num_steps += length
+            num_episodes += 1
+            if num_steps >= capacity:
+                break
+        filenames = filenames[-num_episodes:]
+    episodes = {}
+    for filename in filenames:
+        try:
+            with filename.open('rb') as f:
+                episode = np.load(f)
+                episode = {k: episode[k] for k in episode.keys()}
+        except Exception as e:
+            print(f'Could not load episode {str(filename)}: {e}')
+            continue
+        episodes[str(filename)] = episode
+
+    paths = []
+    for ep in episodes.values():
+        obs = np.concatenate([ep[k] for k in obs_keys], axis=-1)
+        paths.append(types.TrajectoryWithReward(
+                observations=obs[:-1,:],
+                actions=ep['action'],
+                rewards=ep['reward'],
+                next_observations=obs[1:,:],
+                infos=None,
+                log_probs=None,
+            )
+        )
+    check_demo_performance(paths)
+    return paths
 
 def collect_human_trajectories(env_name, demo_filename):
 
@@ -292,6 +322,7 @@ def extract_paths(paths: List[types.Trajectory]) -> List[th.Tensor]:
 def extract_transitions(transitions: List[types.Transition]) -> List[th.Tensor]:
     obs = ptu.from_numpy(np.array([transition.observation for transition in transitions]))
     act = ptu.from_numpy(np.array([transition.action for transition in transitions]))
+    rew = ptu.from_numpy(np.array([transition.reward for transition in transitions]))
     if transitions[0].log_prob is not None:
         log_probs = ptu.from_numpy(np.array([transition.log_prob for transition in transitions]))
     else: 
@@ -299,7 +330,7 @@ def extract_transitions(transitions: List[types.Transition]) -> List[th.Tensor]:
     assert obs.shape[0] == act.shape[0], (
         "Batch size is not same for extracted paths"
     )
-    return obs, act, log_probs
+    return obs, act, rew, log_probs
 
 def log_metrics(logger, metrics: Dict[str, np.ndarray], namespace: str):
     for k, v in metrics.items():

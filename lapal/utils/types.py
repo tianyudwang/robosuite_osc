@@ -52,12 +52,6 @@ class Trajectory:
                     f"Action log_probs shape {len(self.log_probs)} does not match actions {len(self.actions)}"
                 )
 
-        if self.infos is not None:
-            assert isinstance(self.infos, dict)
-            for k, v in self.infos.items():
-                if len(v) != len(self.actions):
-                    raise ValueError(f"Info {k} shape {len(v)} does not match actions {len(self.actions)}")
-
 
 
 @dataclass(frozen=True)
@@ -108,7 +102,7 @@ class Transition:
             raise ValueError(
                 "Initialiazed more than one transition"
             )
-        if self.observation.shape != self.next_observation.shape:
+        if self.next_observation is not None and self.observation.shape != self.next_observation.shape:
             raise ValueError(
                 "Observations have different dimensions in one transition"
             )
@@ -128,16 +122,14 @@ def convert_trajectories_to_transitions(trajectories: List[Trajectory]) -> List[
                 for key, val in traj.infos.items():
                     info[key] = val[i]
 
-            if traj.log_probs is None:
-                log_prob = None
-            else:
-                log_prob = traj.log_probs[i]
+            next_observation = None if traj.next_observations is None else traj.next_observations[i]
+            log_prob = None if traj.log_probs is None else traj.log_probs[i]
             
             transition = Transition(
                 observation=traj.observations[i], 
                 action=traj.actions[i], 
                 reward=traj.rewards[i],
-                next_observation=traj.next_observations[i], 
+                next_observation=next_observation,
                 info=info,
                 log_prob=log_prob
             )

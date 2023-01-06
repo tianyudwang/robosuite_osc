@@ -85,16 +85,16 @@ def train_policy(env, eval_env, algo, policy_name, timesteps=50000):
     data_path = osp.abspath(osp.join(osp.dirname(osp.realpath(__file__)), '../../data'))
     tmp_path = data_path + f'/{policy_name}'
     # set up logger
-    new_logger = configure(tmp_path, ["stdout", "csv", "log", "json", "tensorboard"])
+    new_logger = configure(tmp_path, ["stdout"])#, "csv", "log", "json", "tensorboard"])
     model.set_logger(new_logger)
 
     # callbacks
-    checkpoint_callback = CheckpointCallback(save_freq=50000, save_path=f"./{policy_name}/")
-    # Separate evaluation env
-    eval_callback = EvalCallback(eval_env, best_model_save_path=f"./{policy_name}/best_model",
-                                 log_path=f"./{policy_name}/results", eval_freq=50000)
-    callback = CallbackList([checkpoint_callback, eval_callback])
-    model.learn(total_timesteps=timesteps, callback=callback)
+    # checkpoint_callback = CheckpointCallback(save_freq=50000, save_path=f"./{policy_name}/")
+    # # Separate evaluation env
+    # eval_callback = EvalCallback(eval_env, best_model_save_path=f"./{policy_name}/best_model",
+    #                              log_path=f"./{policy_name}/results", eval_freq=50000)
+    # callback = CallbackList([checkpoint_callback, eval_callback])
+    model.learn(total_timesteps=timesteps)#, callback=callback)
 
     return model
 
@@ -116,13 +116,6 @@ def main():
     print(f'Action space: {train_env.action_space}')
 
     policy_name = f"{args.algo}_{args.env_name}_OSC"
-
-    checkpoint_callback = CheckpointCallback(
-        save_freq=50000,
-        save_path=f"./{policy_name}/",
-        name_prefix="rl_model",
-    )
-
     model = train_policy(train_env, eval_env, args.algo, policy_name, timesteps=args.total_timesteps)
 
 

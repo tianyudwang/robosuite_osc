@@ -114,12 +114,16 @@ class Discriminator(nn.Module):
         disc_agent_acc = th.mean((agent_D > 0.5).float())
         disc_expert_logit = th.mean(logits[:self.batch_size])
         disc_agent_logit = th.mean(logits[self.batch_size:])
+        demo_reward = th.mean(self.reward(demo_states, demo_actions))
+        agent_reward = th.mean(self.reward(agent_states, agent_actions))
         metrics = {
             'disc_loss': loss.item(),
             'disc_expert_acc': disc_expert_acc.item(),
             'disc_agent_acc': disc_agent_acc.item(),  
             'disc_expert_logit': disc_expert_logit.item(),
             'disc_agent_logit': disc_agent_logit.item(),
+            'expert_reward': demo_reward.item(),
+            'agent_reward': agent_reward.item(),
             'grad': grad_norms.mean().item(),
         }
         return metrics

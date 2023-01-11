@@ -32,6 +32,7 @@ def main():
     logdir = params['env_name'] + '_' + time.strftime("%d-%m-%Y_%H-%M-%S")
     if params['suffix'] is None:
         params['suffix'] = params['discriminator']['reward_type'] + '_' + params['generator']['type']
+    logdir += params['suffix']
     logdir = data_path / logdir
     params['logdir'] = str(logdir)
 

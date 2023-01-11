@@ -36,6 +36,7 @@ def main():
     params['logdir'] = str(logdir)
 
     print(params)
+    import ipdb; ipdb.set_trace()
 
     # dump params
     logdir.mkdir(parents=True, exist_ok=True)

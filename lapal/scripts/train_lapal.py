@@ -112,7 +112,6 @@ def main():
             **policy_kwargs
         )
 
-    import ipdb; ipdb.set_trace()
     policy.set_logger(logger)
 
     print(f"Environment state space dimension: {params['ob_dim']}, action space dimension: {params['ac_dim']}")

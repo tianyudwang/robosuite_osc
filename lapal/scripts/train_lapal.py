@@ -98,7 +98,7 @@ def main():
             learning_starts=gen_params['learning_starts'],
             batch_size=gen_params['batch_size'],
             gradient_steps=gen_params['gradient_steps'],
-            policy_kwargs=dict(net_arch=[256, 256]),
+            policy_kwargs=gen_params['policy_kwargs'],
             seed=params['seed'],
             **policy_kwargs
         )
@@ -111,6 +111,8 @@ def main():
             seed=params['seed'],
             **policy_kwargs
         )
+
+    import ipdb; ipdb.set_trace()
     policy.set_logger(logger)
 
     print(f"Environment state space dimension: {params['ob_dim']}, action space dimension: {params['ac_dim']}")

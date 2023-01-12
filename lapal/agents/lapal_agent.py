@@ -54,7 +54,7 @@ class LAPAL_Agent:
         if self.use_disc:
             demo_paths = utils.load_episodes(self.expert_demo_dir, self.params['obs_keys'])
             self.demo_buffer.add_rollouts(demo_paths)
-            self.load_demo_samples_to_agent()
+            # self.load_demo_samples_to_agent()
 
         # Warm up generator replay buffer
         self.policy.learn(total_timesteps=self.params['generator']['learning_starts'])
@@ -77,8 +77,8 @@ class LAPAL_Agent:
                 self.perform_logging(self.policy)
             self.logger.dump(step=self.timesteps)
 
-            # if self.timesteps % self.params['evaluation']['save_interval'] < self.params['generator']['batch_size']:
-            #     self.save_models()
+            if self.timesteps % self.params['evaluation']['save_interval'] < self.params['generator']['batch_size']:
+                self.save_models()
         
     def load_demo_samples_to_agent(self):
         n_envs = self.params['n_envs']

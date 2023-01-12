@@ -31,26 +31,24 @@ def make_robosuite_env(env_name=None, obs_keys=None):
         use_camera_obs=False,
         use_object_obs=True,
         controller_configs=controller_configs,
+        use_touch_obs=True,
     )
-    obs_keys = [
-        'robot0_eef_pos',
-        'robot0_eef_quat',
-        'robot0_gripper_qpos',
-        # 'robot0_gripper_qvel',
-        # 'cube_pos',
-        # 'cube_quat',
-        # 'gripper_to_cube_pos',
-        'object-state',
-    ]
+    if obs_keys is None:
+        obs_keys = [
+            'robot0_eef_pos',
+            'robot0_eef_quat',
+            'robot0_gripper_qpos',
+            'object-state',
+        ]
     env = GymWrapper(env, keys=obs_keys)
     return env
 
-def build_venv(env_name, n_envs):
+def build_venv(env_name, n_envs, obs_keys=None):
     """
     Make vectorized env and add env wrappers
     """
     if env_name in ["Door", "Lift"]:
-        env_kwargs = dict(env_name=env_name)
+        env_kwargs = dict(env_name=env_name, obs_keys=obs_keys)
         venv = make_vec_env(
             make_robosuite_env, 
             env_kwargs=env_kwargs,

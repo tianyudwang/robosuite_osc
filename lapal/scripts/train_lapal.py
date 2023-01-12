@@ -74,9 +74,9 @@ def main():
     # Environment
     ################################################
     # SubprocVecEnv must be wrapped in if __name__ == "__main__":
-    venv = utils.build_venv(params['env_name'], params['n_envs'])
+    venv = utils.build_venv(params['env_name'], params['n_envs'], obs_keys=params['obs_keys'])
     venv.seed(params['seed'])
-    eval_venv = utils.build_venv(params['env_name'], params['n_envs'])
+    eval_venv = utils.build_venv(params['env_name'], params['n_envs'], obs_keys=params['obs_keys'])
     eval_venv.seed(params['seed'] + 100)
     logger = configure(params['logdir'], ["stdout", "csv", "log", "tensorboard"])
 

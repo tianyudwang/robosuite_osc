@@ -182,13 +182,10 @@ class LAPAL_Agent:
 
         th.save(self.disc.state_dict(), osp.join(folder, "disc.pt"))
         self.policy.save(osp.join(folder, "policy.pt"))
-        if self.ac_vae is not None:
-            th.save(self.ac_vae.state_dict(), osp.join(folder, "ac_vae.pt"))
+
 
     def load_models(self, folder):
 
         self.disc.load_state_dict(th.load(folder + "/disc.pt"))
         self.policy = SAC.load(folder + "/policy.pt")
         
-        if self.ac_vae is not None:
-            self.ac_vae.load_state_dict(th.load(folder + "/ac_vae.pt"))

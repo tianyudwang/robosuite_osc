@@ -73,12 +73,12 @@ class LAPAL_Agent:
             self.timesteps += timesteps
 
             # Evaluation
-            if self.timesteps % self.params['evaluation']['interval'] < self.params['generator']['batch_size']:
+            if self.timesteps % self.params['evaluation']['interval'] < timesteps:
                 self.perform_logging(self.policy)
+            if self.timesteps % self.params['evaluation']['save_interval'] < timesteps:
+                self.save_models()
             self.logger.dump(step=self.timesteps)
 
-            if self.timesteps % self.params['evaluation']['save_interval'] < self.params['generator']['batch_size']:
-                self.save_models()
         
     def load_demo_samples_to_agent(self):
         n_envs = self.params['n_envs']
@@ -177,7 +177,7 @@ class LAPAL_Agent:
 
     def save_models(self):   
 
-        folder = self.params['logdir'] + f"/checkpoints/{self.timesteps:06d}"
+        folder = self.params['logdir'] + f"/checkpoints/{self.timesteps:07d}"
         os.makedirs(folder, exist_ok=True) 
 
         th.save(self.disc.state_dict(), osp.join(folder, "disc.pt"))

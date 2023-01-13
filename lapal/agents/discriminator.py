@@ -64,8 +64,8 @@ class Discriminator(nn.Module):
 
     def reward(self, states: th.Tensor, actions: th.Tensor) -> th.Tensor:
         """Recompute reward after collected rollouts for off-policy algorithm"""
-        touch = states[:, -2:]
-        has_grasp = th.all(touch > 10, dim=-1, keepdim=True)
+        # touch = states[:, -2:]
+        # has_grasp = th.all(touch > 10, dim=-1, keepdim=True)
         with th.no_grad():
             logits = self(states.float(), actions.float())
             if self.reward_type == 'GAIL':
@@ -78,7 +78,7 @@ class Discriminator(nn.Module):
                 rewards = self.sigmoid(-logits)
             else:
                 assert False
-        rewards += 0.5 * has_grasp
+        # rewards += 0.5 * has_grasp
         return rewards
 
 

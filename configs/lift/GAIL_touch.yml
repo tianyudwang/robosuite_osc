@@ -13,10 +13,10 @@ discriminator:
   reward_type: SOFTPLUS
   batch_size: 256
   learning_rate: 3e-6
-  spectral_norm: False
+  spectral_norm: True
 generator:
   type: SAC
-  learning_starts: 16000
+  learning_starts: 0
   batch_size: 256
   learning_rate: 3e-4
   gradient_steps: 1

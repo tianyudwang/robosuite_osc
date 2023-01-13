@@ -54,7 +54,7 @@ class LAPAL_Agent:
         if self.use_disc:
             demo_paths = utils.load_episodes(self.expert_demo_dir, self.params['obs_keys'])
             self.demo_buffer.add_rollouts(demo_paths)
-            # self.load_demo_samples_to_agent()
+            self.load_demo_samples_to_agent()
 
         # Warm up generator replay buffer
         self.policy.learn(total_timesteps=self.params['generator']['learning_starts'])
@@ -76,7 +76,7 @@ class LAPAL_Agent:
             if self.timesteps % self.params['evaluation']['interval'] < timesteps:
                 self.perform_logging(self.policy)
             if self.timesteps % self.params['evaluation']['save_interval'] < timesteps:
-                self.save_models()
+                folder = self.save_models()
             self.logger.dump(step=self.timesteps)
 
         
@@ -180,12 +180,16 @@ class LAPAL_Agent:
         folder = self.params['logdir'] + f"/checkpoints/{self.timesteps:07d}"
         os.makedirs(folder, exist_ok=True) 
 
+        self.policy.save(osp.join(folder, "policy.pt"), exclude=['reward'])
         th.save(self.disc.state_dict(), osp.join(folder, "disc.pt"))
-        self.policy.save(osp.join(folder, "policy.pt"))
 
+        return folder
 
-    def load_models(self, folder):
+    def load_models(self, folder): 
+
+        print(f'Loading models from checkpoint {folder}')
 
         self.disc.load_state_dict(th.load(folder + "/disc.pt"))
         self.policy = SAC.load(folder + "/policy.pt")
+        self.policy.set_env(self.venv)
         

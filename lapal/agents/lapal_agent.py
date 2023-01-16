@@ -54,7 +54,7 @@ class LAPAL_Agent:
         if self.use_disc:
             demo_paths = utils.load_episodes(self.expert_demo_dir, self.params['obs_keys'])
             self.demo_buffer.add_rollouts(demo_paths)
-            if params.get('init_agent_buffer_from_demo', False):
+            if self.params.get('init_agent_buffer_from_demo', False):
                 self.load_demo_samples_to_agent()
 
         # Warm up generator replay buffer

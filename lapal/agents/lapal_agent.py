@@ -54,7 +54,8 @@ class LAPAL_Agent:
         if self.use_disc:
             demo_paths = utils.load_episodes(self.expert_demo_dir, self.params['obs_keys'])
             self.demo_buffer.add_rollouts(demo_paths)
-            self.load_demo_samples_to_agent()
+            if params.get('init_agent_buffer_from_demo', False):
+                self.load_demo_samples_to_agent()
 
         # Warm up generator replay buffer
         self.policy.learn(total_timesteps=self.params['generator']['learning_starts'])
@@ -79,6 +80,8 @@ class LAPAL_Agent:
                 folder = self.save_models()
             self.logger.dump(step=self.timesteps)
 
+        # save final model
+        self.save_models()
         
     def load_demo_samples_to_agent(self):
         n_envs = self.params['n_envs']
@@ -96,23 +99,23 @@ class LAPAL_Agent:
                 self.policy.replay_buffer.add(obs, next_obs, action, reward, done, infos)
         print(f"Agent replay buffer contains {n_envs * self.policy.replay_buffer.pos} samples")
 
-    def pretrain_ac_vae(self):
-        batch_size = self.params['ac_vae']['batch_size']
+    # def pretrain_ac_vae(self):
+    #     batch_size = self.params['ac_vae']['batch_size']
         
-        for i in range(self.params['ac_vae']['n_iters']):
-            demo_transitions = self.demo_buffer.sample_random_transitions(batch_size)
-            obs = ptu.from_numpy(np.stack([t.observation for t in demo_transitions], axis=0))
-            acs = ptu.from_numpy(np.stack([t.action for t in demo_transitions], axis=0))
-            metrics = self.ac_vae.train(obs, acs)
+    #     for i in range(self.params['ac_vae']['n_iters']):
+    #         demo_transitions = self.demo_buffer.sample_random_transitions(batch_size)
+    #         obs = ptu.from_numpy(np.stack([t.observation for t in demo_transitions], axis=0))
+    #         acs = ptu.from_numpy(np.stack([t.action for t in demo_transitions], axis=0))
+    #         metrics = self.ac_vae.train(obs, acs)
 
-            if (i + 1) % 1000 == 0:
-                for k, v in metrics.items():
-                    self.logger.record(f"ac_vae/{k}", v)
-            else:
-                for k, v in metrics.items():
-                    self.logger.record(f"ac_vae/{k}", v, exclude='stdout')
+    #         if (i + 1) % 1000 == 0:
+    #             for k, v in metrics.items():
+    #                 self.logger.record(f"ac_vae/{k}", v)
+    #         else:
+    #             for k, v in metrics.items():
+    #                 self.logger.record(f"ac_vae/{k}", v, exclude='stdout')
             
-            self.logger.dump(step=i)
+    #         self.logger.dump(step=i)
 
 
     def train_generator(self, timesteps):
@@ -177,7 +180,7 @@ class LAPAL_Agent:
 
     def save_models(self):   
 
-        folder = self.params['logdir'] + f"/checkpoints/{self.timesteps:07d}"
+        folder = self.params['logdir'] + f"/checkpoints/{self.timesteps:08d}"
         os.makedirs(folder, exist_ok=True) 
 
         self.policy.save(osp.join(folder, "policy.pt"), exclude=['reward'])

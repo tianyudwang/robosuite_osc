@@ -2,6 +2,7 @@ env_name: Lift
 expert_folder: ./demonstrations/Lift_touch
 total_timesteps: 10000000
 n_envs: 8
+init_agent_buffer_from_demo: True
 obs_keys:
   - robot0_eef_pos
   - robot0_eef_quat
@@ -25,10 +26,10 @@ generator:
       pi: [512, 512]
       qf: [512, 512]
 evaluation:
-  interval: 10000
-  batch_size: 8
+  interval: 100000
+  batch_size: 4
   save_interval: 1000000
 seed: 42
 no_gpu: false
 which_gpu: 0
-suffix: GAIL_SAC_touch
+suffix: SOFTPLUS_SAC_touch

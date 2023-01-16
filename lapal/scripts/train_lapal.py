@@ -67,7 +67,7 @@ def main():
         learning_rate=disc_params['learning_rate'],
         batch_size=disc_params['batch_size'],
         reward_type=disc_params['reward_type'],
-        spectral_norm=disc_params.get('spectral_norm', False),
+        spectral_norm=disc_params['spectral_norm'],
     )
 
     ################################################

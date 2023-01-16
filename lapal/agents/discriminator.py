@@ -39,7 +39,7 @@ class Discriminator(nn.Module):
             activation=activation,
             output_activation='identity',
             spectral_norm=spectral_norm
-        ).to('cuda') 
+        ).to(ptu.device) 
 
         self.sigmoid = nn.Sigmoid()
         self.softplus = nn.Softplus()

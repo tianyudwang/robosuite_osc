@@ -11,7 +11,7 @@ from stable_baselines3.common.callbacks import CallbackList, CheckpointCallback,
 
 from lapal.utils import utils
 
-def build_env(env_name, n_envs, env_kwargs=None, wrapper=None, wrapper_kwargs=None):
+def build_env(env_name, n_envs, controller_type):
     """
     Make env and add env wrappers
     """
@@ -21,7 +21,18 @@ def build_env(env_name, n_envs, env_kwargs=None, wrapper=None, wrapper_kwargs=No
         from robosuite.wrappers import GymWrapper
 
         def make_env():
-            controller_configs = suite.load_controller_config(default_controller="OSC_POSE")
+            if controller_type == 'OSC_POSE':
+                obs_keys = [
+                    'robot0_eef_pos',
+                    'robot0_eef_quat',
+                    'robot0_gripper_qpos',
+                ]
+            elif controller_type == 'JOINT_VELOCITY':
+                obs_keys = ['robot0_proprio-state']
+            else:
+                raise ValueError(f'{controller_type} controller type not supported.')
+            controller_configs = suite.load_controller_config(default_controller=controller_type)
+            obs_keys.append('object-state')
             env = suite.make(
                 env_name=env_name, # try with other tasks like "Stack" and "Door"
                 robots="Panda",  # try with other robots like "Sawyer" and "Jaco"
@@ -31,16 +42,6 @@ def build_env(env_name, n_envs, env_kwargs=None, wrapper=None, wrapper_kwargs=No
                 use_camera_obs=False,
                 controller_configs=controller_configs,
             )
-            obs_keys = [
-                'robot0_eef_pos',
-                'robot0_eef_quat',
-                'robot0_gripper_qpos',
-                # 'robot0_gripper_qvel',
-                # 'cube_pos',
-                # 'cube_quat',
-                # 'gripper_to_cube_pos',
-                'object-state',
-            ]
             env = GymWrapper(env, keys=obs_keys)
             return env
         env = make_vec_env(make_env, vec_env_cls=SubprocVecEnv, n_envs=n_envs)  
@@ -62,10 +63,10 @@ def build_env(env_name, n_envs, env_kwargs=None, wrapper=None, wrapper_kwargs=No
         )
 
     else:
-        raise ValueError('Environment {} not supported yet ...'.format(env_name))
+        raise ValueError(f'Environment {env_name} not supported yet ...')
     return env
 
-def train_policy(env, eval_env, algo, policy_name, timesteps=50000):
+def train_policy(env, eval_env, algo, policy_name, timesteps=100000):
     """
     Train the expert policy in RL
     """
@@ -89,12 +90,13 @@ def train_policy(env, eval_env, algo, policy_name, timesteps=50000):
     model.set_logger(new_logger)
 
     # callbacks
-    # checkpoint_callback = CheckpointCallback(save_freq=50000, save_path=f"./{policy_name}/")
-    # # Separate evaluation env
-    # eval_callback = EvalCallback(eval_env, best_model_save_path=f"./{policy_name}/best_model",
-    #                              log_path=f"./{policy_name}/results", eval_freq=50000)
-    # callback = CallbackList([checkpoint_callback, eval_callback])
-    model.learn(total_timesteps=timesteps)#, callback=callback)
+    save_freq = 10000
+    checkpoint_callback = CheckpointCallback(save_freq=save_freq, save_path=f"./{policy_name}/")
+    # Separate evaluation env
+    eval_callback = EvalCallback(eval_env, best_model_save_path=f"./{policy_name}/best_model",
+                                 log_path=f"./{policy_name}/results", eval_freq=save_freq)
+    callback = CallbackList([checkpoint_callback, eval_callback])
+    model.learn(total_timesteps=timesteps, callback=callback)
 
     return model
 
@@ -103,19 +105,21 @@ def train_policy(env, eval_env, algo, policy_name, timesteps=50000):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--env_name', type=str, default='HalfCheetah-v3')
+    parser.add_argument('--env_name', type=str, default='Lift')
     parser.add_argument('--algo', type=str, default='SAC')
     parser.add_argument('--resume_from', type=str, default=None)
     parser.add_argument('--total_timesteps', type=int, default=10000000)
     parser.add_argument('--n_envs', type=int, default=8)
+    parser.add_argument('--controller_type', type=str, default='OSC_POSE')
     args = parser.parse_args()
     
-    train_env = build_env(args.env_name, args.n_envs)
-    eval_env = build_env(args.env_name, args.n_envs)
+
+    train_env = build_env(args.env_name, args.n_envs, args.controller_type)
+    eval_env = build_env(args.env_name, args.n_envs, args.controller_type)
     print(f'Observation space: {train_env.observation_space}')
     print(f'Action space: {train_env.action_space}')
 
-    policy_name = f"{args.algo}_{args.env_name}_OSC"
+    policy_name = f"{args.algo}_{args.env_name}_{args.controller_type}"
     model = train_policy(train_env, eval_env, args.algo, policy_name, timesteps=args.total_timesteps)
 
 

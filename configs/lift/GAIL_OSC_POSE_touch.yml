@@ -1,0 +1,35 @@
+env_name: Lift
+expert_folder: ./demonstrations/OSC_POSE/Lift
+total_timesteps: 10000000
+n_envs: 8
+init_agent_buffer_from_demo: True
+obs_keys:
+  - robot0_eef_pos
+  - robot0_eef_quat
+  - robot0_gripper_qpos
+  - object-state
+  - robot0_touch-state
+discriminator:
+  use_disc: true
+  reward_type: SOFTPLUS
+  batch_size: 256
+  learning_rate: 3e-6
+  spectral_norm: True
+generator:
+  type: SAC
+  learning_starts: 0
+  batch_size: 256
+  learning_rate: 3e-4
+  gradient_steps: 1
+  policy_kwargs:
+    net_arch:
+      pi: [512, 512]
+      qf: [512, 512]
+evaluation:
+  interval: 100000
+  batch_size: 4
+  save_interval: 1000000
+seed: 42
+no_gpu: false
+which_gpu: 0
+suffix: SOFTPLUS_SAC_OSC_POSE_touch

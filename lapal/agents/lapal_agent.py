@@ -160,7 +160,7 @@ class LAPAL_Agent:
         eval_paths = utils.sample_trajectories(
             self.eval_venv, 
             eval_policy, 
-            self.params['evaluation']['batch_size'],
+            self.params['evaluation']['num_episodes'],
         )  
 
         eval_returns = [path.rewards.sum() for path in eval_paths]
@@ -169,8 +169,8 @@ class LAPAL_Agent:
         logs = {}
         logs["Eval/AverageReturn"] = np.mean(eval_returns)
         logs["Eval/StdReturn"] = np.std(eval_returns)
-        logs["Eval/MaxReturn"] = np.max(eval_returns)
-        logs["Eval/MinReturn"] = np.min(eval_returns)
+        logs["Eval/MaxReturn"] = np.amax(eval_returns)
+        logs["Eval/MinReturn"] = np.amin(eval_returns)
         logs["Eval/AverageEpLen"] = np.mean(eval_ep_lens)
 
         for key, value in logs.items():

@@ -20,8 +20,8 @@ from stable_baselines3.common.env_util import make_vec_env
 from lapal.utils import pytorch_utils as ptu
 from lapal.utils import types
 
-def make_robosuite_env(env_name=None, obs_keys=None):
-    controller_configs = suite.load_controller_config(default_controller="OSC_POSE")
+def make_robosuite_env(env_name=None, obs_keys=None, controller_type='OSC_POSE'):
+    controller_configs = suite.load_controller_config(default_controller=controller_type)
     env = suite.make(
         env_name=env_name, # try with other tasks like "Stack" and "Door"
         robots="Panda",  # try with other robots like "Sawyer" and "Jaco"
@@ -43,12 +43,16 @@ def make_robosuite_env(env_name=None, obs_keys=None):
     env = GymWrapper(env, keys=obs_keys)
     return env
 
-def build_venv(env_name, n_envs, obs_keys=None):
+def build_venv(env_name, n_envs=1, obs_keys=None, controller_type='OSC_POSE'):
     """
     Make vectorized env and add env wrappers
     """
     if env_name in ["Door", "Lift"]:
-        env_kwargs = dict(env_name=env_name, obs_keys=obs_keys)
+        env_kwargs = dict(
+            env_name=env_name, 
+            obs_keys=obs_keys, 
+            controller_type=controller_type,
+        )
         venv = make_vec_env(
             make_robosuite_env, 
             env_kwargs=env_kwargs,
@@ -56,23 +60,8 @@ def build_venv(env_name, n_envs, obs_keys=None):
             n_envs=n_envs,
         )  
         return venv
-
-    if env_name in ['Hoppper-v3', 'Walker2d-v3', 'Ant-v3', 'Humanoid-v3']:
-        env_kwargs = dict(terminate_when_unhealthy=False)
-    else:
-        env_kwargs = None
-
-    if get_gym_env_type(env_name) == 'mujoco':
-        venv = make_vec_env(
-            env_name, 
-            n_envs=n_envs, 
-            env_kwargs=env_kwargs,
-            wrapper_class=wrapper, 
-            wrapper_kwargs=wrapper_kwargs
-        ) 
     else:
         raise ValueError('Environment {} not supported yet ...'.format(env_name))
-
     return venv
 
 def sample_trajectories(

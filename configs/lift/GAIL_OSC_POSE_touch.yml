@@ -1,5 +1,6 @@
 env_name: Lift
-expert_folder: ./demonstrations/OSC_POSE/Lift
+expert_folder: demonstrations
+controller_type: OSC_POSE
 total_timesteps: 10000000
 n_envs: 8
 init_agent_buffer_from_demo: True
@@ -27,9 +28,10 @@ generator:
       qf: [512, 512]
 evaluation:
   interval: 100000
-  batch_size: 4
+  n_envs: 4
+  num_episodes: 4
   save_interval: 1000000
 seed: 42
 no_gpu: false
 which_gpu: 0
-suffix: SOFTPLUS_SAC_OSC_POSE_touch
+suffix: touch

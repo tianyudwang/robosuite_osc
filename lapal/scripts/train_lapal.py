@@ -26,13 +26,19 @@ def main():
     ### CREATE DIRECTORY FOR LOGGING
     ##################################
 
-    expert_demo_dir = pathlib.Path(params['expert_folder']).resolve()
+    expert_demo_dir = pathlib.Path(params['expert_folder']) / params['env_name'] / params['controller_type']
+    expert_demo_dir = expert_demo_dir.resolve()
 
-    data_path = pathlib.Path(__file__).parent.parent.parent / 'data'
-    logdir = params['env_name'] + '_' + time.strftime("%d-%m-%Y_%H-%M-%S")
-    if params['suffix'] is None:
-        params['suffix'] = params['discriminator']['reward_type'] + '_' + params['generator']['type']
-    logdir += '_' + params['suffix']
+    data_path = pathlib.Path(__file__).parent.parent.parent / 'data' / time.strftime("%m.%d.%Y")
+    logdir = '_'.join([
+        time.strftime("%H-%M-%S"),
+        params['env_name'],
+        params['discriminator']['reward_type'],
+        params['generator']['type'],
+        params['controller_type'],
+    ])
+    if params['suffix'] is not None:
+        logdir += '_' + params['suffix']
     logdir = data_path / logdir
     params['logdir'] = str(logdir)
 
@@ -50,9 +56,13 @@ def main():
     ptu.init_gpu(use_gpu=not params['no_gpu'], gpu_id=params['which_gpu'])
 
     if params['env_name'] in ['Door', 'Lift']:
-        env = utils.make_robosuite_env(params['env_name'], params['obs_keys'])
+        env = utils.make_robosuite_env(
+            params['env_name'], 
+            params['obs_keys'], 
+            params['controller_type'],
+    )
     else:
-        env = gym.make(params['env_name'])
+        raise ValueError(f"{params['env_name']} not supported")
     params['ob_dim'] = env.observation_space.shape[0]
     params['ac_dim'] = env.action_space.shape[0]
 
@@ -74,9 +84,19 @@ def main():
     # Environment
     ################################################
     # SubprocVecEnv must be wrapped in if __name__ == "__main__":
-    venv = utils.build_venv(params['env_name'], params['n_envs'], obs_keys=params['obs_keys'])
+    venv = utils.build_venv(
+        params['env_name'], 
+        n_envs=params['n_envs'], 
+        obs_keys=params['obs_keys'], 
+        controller_type=params['controller_type'],
+    )
+    eval_venv = utils.build_venv(
+        params['env_name'], 
+        n_envs=params['evaluation']['n_envs'], 
+        obs_keys=params['obs_keys'],
+        controller_type=params['controller_type'],
+    )
     venv.seed(params['seed'])
-    eval_venv = utils.build_venv(params['env_name'], params['n_envs'], obs_keys=params['obs_keys'])
     eval_venv.seed(params['seed'] + 100)
     logger = configure(params['logdir'], ["stdout", "csv", "log", "tensorboard"])
 
@@ -84,9 +104,9 @@ def main():
     # Generator
     ################################################
     gen_params = params['generator']
-    policy_kwargs = {}
+    gen_kwargs = {}
     if disc_params['use_disc']:
-        policy_kwargs.update(dict(reward=disc.reward))
+        gen_kwargs.update(dict(reward=disc.reward))
 
 
     if gen_params['type'] == 'SAC':
@@ -100,7 +120,7 @@ def main():
             gradient_steps=gen_params['gradient_steps'],
             policy_kwargs=gen_params['policy_kwargs'],
             seed=params['seed'],
-            **policy_kwargs
+            **gen_kwargs,
         )
     elif gen_params['type'] == 'PPO':
         policy = PPO(
@@ -109,7 +129,7 @@ def main():
             learning_rate=gen_params['learning_rate'],
             n_steps=gen_params['n_steps'],
             seed=params['seed'],
-            **policy_kwargs
+            **gen_kwargs,
         )
 
     policy.set_logger(logger)

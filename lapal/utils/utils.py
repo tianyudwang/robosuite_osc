@@ -22,7 +22,7 @@ from lapal.utils import types
 
 ROBOSUITE_ENVS = ["Door", "Lift", "PickPlaceCan", "PickPlaceBread"]
 
-def make_robosuite_env(env_name=None, obs_keys=None, controller_type='OSC_POSE'):
+def make_robosuite_env(env_name=None, controller_type='OSC_POSE'):
     controller_configs = suite.load_controller_config(default_controller=controller_type)
     env = suite.make(
         env_name=env_name, # try with other tasks like "Stack" and "Door"
@@ -35,14 +35,6 @@ def make_robosuite_env(env_name=None, obs_keys=None, controller_type='OSC_POSE')
         controller_configs=controller_configs,
         use_touch_obs=True,
     )
-    if obs_keys is None:
-        obs_keys = [
-            'robot0_eef_pos',
-            'robot0_eef_quat',
-            'robot0_gripper_qpos',
-            'object-state',
-        ]
-    env = GymWrapper(env, keys=obs_keys)
     return env
 
 def build_venv(env_name, n_envs=1, obs_keys=None, controller_type='OSC_POSE'):
@@ -50,14 +42,19 @@ def build_venv(env_name, n_envs=1, obs_keys=None, controller_type='OSC_POSE'):
     Make vectorized env and add env wrappers
     """
     if env_name in ROBOSUITE_ENVS:
-        env_kwargs = dict(
-            env_name=env_name, 
-            obs_keys=obs_keys, 
-            controller_type=controller_type,
-        )
+        if obs_keys is None:
+            obs_keys = [
+                'robot0_eef_pos',
+                'robot0_eef_quat',
+                'robot0_gripper_qpos',
+                'object-state',
+            ]
+        env_kwargs = dict(env_name=env_name, controller_type=controller_type)
         venv = make_vec_env(
             make_robosuite_env, 
             env_kwargs=env_kwargs,
+            wrapper_class=GymWrapper,
+            wrapper_kwargs=dict(keys=obs_keys),
             vec_env_cls=SubprocVecEnv, 
             n_envs=n_envs,
         )  
@@ -71,7 +68,6 @@ def sample_trajectories(
     policy: Union[OffPolicyAlgorithm, Any],
     num_trajectories: int,
     deterministic: Optional[bool] = True,
-    ac_decoder: Callable[[np.ndarray], np.ndarray] = None,
 ) -> List[types.TrajectoryWithReward]:
     """
     Currently only works for fixed horizon envs, all envs should return done=True 
@@ -87,12 +83,6 @@ def sample_trajectories(
         while not any(done):
 
             ac, _ = policy.predict(ob, deterministic=deterministic)
-
-            if ac_decoder is not None:
-                ob_tensor = ptu.from_numpy(ob)
-                ac_tensor = ptu.from_numpy(ac)
-                ac = ptu.to_numpy(ac_decoder(ob_tensor, ac_tensor))
-
             next_ob, reward, done, info = venv.step(ac)
 
             obs.append(ob)

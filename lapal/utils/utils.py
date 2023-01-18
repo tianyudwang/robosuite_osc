@@ -20,6 +20,8 @@ from stable_baselines3.common.env_util import make_vec_env
 from lapal.utils import pytorch_utils as ptu
 from lapal.utils import types
 
+ROBOSUITE_ENVS = ["Door", "Lift", "PickPlaceCan", "PickPlaceBread"]
+
 def make_robosuite_env(env_name=None, obs_keys=None, controller_type='OSC_POSE'):
     controller_configs = suite.load_controller_config(default_controller=controller_type)
     env = suite.make(
@@ -47,7 +49,7 @@ def build_venv(env_name, n_envs=1, obs_keys=None, controller_type='OSC_POSE'):
     """
     Make vectorized env and add env wrappers
     """
-    if env_name in ["Door", "Lift"]:
+    if env_name in ROBOSUITE_ENVS:
         env_kwargs = dict(
             env_name=env_name, 
             obs_keys=obs_keys, 

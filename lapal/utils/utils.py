@@ -20,7 +20,7 @@ from stable_baselines3.common.env_util import make_vec_env
 from lapal.utils import pytorch_utils as ptu
 from lapal.utils import types
 
-ROBOSUITE_ENVS = ["Door", "Lift", "PickPlaceCan", "PickPlaceBread"]
+ROBOSUITE_ENVS = ["Door", "Lift", "PickPlaceCan", "PickPlaceBread", "PickPlaceMilk", "PickPlaceCereal"]
 
 def make_robosuite_env(env_name=None, controller_type='OSC_POSE', render=False):
     controller_configs = suite.load_controller_config(default_controller=controller_type)

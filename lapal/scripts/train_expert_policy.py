@@ -18,10 +18,10 @@ def train_policy(env, eval_env, algo, policy_name, timesteps=100000):
     if algo == 'SAC':
         from stable_baselines3 import SAC
         model = SAC("MlpPolicy", env, verbose=1)
-    if algo == 'DDPG':
+    elif algo == 'DDPG':
         from stable_baselines3 import DDPG
         model = DDPG("MlpPolicy", env, train_freq=(4, "step"), verbose=1)  
-    if algo == 'PPO':
+    elif algo == 'PPO':
         from stable_baselines3 import PPO
         model = PPO("MlpPolicy", env, verbose=1)
     else:

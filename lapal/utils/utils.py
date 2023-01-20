@@ -22,13 +22,13 @@ from lapal.utils import types
 
 ROBOSUITE_ENVS = ["Door", "Lift", "PickPlaceCan", "PickPlaceBread"]
 
-def make_robosuite_env(env_name=None, controller_type='OSC_POSE'):
+def make_robosuite_env(env_name=None, controller_type='OSC_POSE', render=False):
     controller_configs = suite.load_controller_config(default_controller=controller_type)
     env = suite.make(
         env_name=env_name, # try with other tasks like "Stack" and "Door"
         robots="Panda",  # try with other robots like "Sawyer" and "Jaco"
         reward_shaping=True,
-        has_renderer=False,
+        has_renderer=render,
         has_offscreen_renderer=False,
         use_camera_obs=False,
         use_object_obs=True,

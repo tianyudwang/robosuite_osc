@@ -55,16 +55,27 @@ def main():
     ##################################
     ptu.init_gpu(use_gpu=not params['no_gpu'], gpu_id=params['which_gpu'])
 
-    if params['env_name'] in ['Door', 'Lift']:
-        env = utils.make_robosuite_env(
-            params['env_name'], 
-            params['obs_keys'], 
-            params['controller_type'],
+    ################################################
+    # Environment
+    ################################################
+    # SubprocVecEnv must be wrapped in if __name__ == "__main__":
+    venv = utils.build_venv(
+        params['env_name'], 
+        n_envs=params['n_envs'], 
+        obs_keys=params['obs_keys'], 
+        controller_type=params['controller_type'],
     )
-    else:
-        raise ValueError(f"{params['env_name']} not supported")
-    params['ob_dim'] = env.observation_space.shape[0]
-    params['ac_dim'] = env.action_space.shape[0]
+    params['ob_dim'] = venv.observation_space.shape[0]
+    params['ac_dim'] = venv.action_space.shape[0]
+    eval_venv = utils.build_venv(
+        params['env_name'], 
+        n_envs=params['evaluation']['n_envs'], 
+        obs_keys=params['obs_keys'],
+        controller_type=params['controller_type'],
+    )
+    venv.seed(params['seed'])
+    eval_venv.seed(params['seed'] + 100)
+    logger = configure(params['logdir'], ["stdout", "csv", "log", "tensorboard"])
 
     ################################################
     # Discriminator
@@ -79,27 +90,7 @@ def main():
         reward_type=disc_params['reward_type'],
         spectral_norm=disc_params['spectral_norm'],
     )
-
-    ################################################
-    # Environment
-    ################################################
-    # SubprocVecEnv must be wrapped in if __name__ == "__main__":
-    venv = utils.build_venv(
-        params['env_name'], 
-        n_envs=params['n_envs'], 
-        obs_keys=params['obs_keys'], 
-        controller_type=params['controller_type'],
-    )
-    eval_venv = utils.build_venv(
-        params['env_name'], 
-        n_envs=params['evaluation']['n_envs'], 
-        obs_keys=params['obs_keys'],
-        controller_type=params['controller_type'],
-    )
-    venv.seed(params['seed'])
-    eval_venv.seed(params['seed'] + 100)
-    logger = configure(params['logdir'], ["stdout", "csv", "log", "tensorboard"])
-
+    
     ################################################
     # Generator
     ################################################

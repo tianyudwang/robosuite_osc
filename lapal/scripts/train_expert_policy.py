@@ -31,7 +31,7 @@ def train_policy(env, eval_env, algo, policy_name, timesteps=100000):
     data_path = osp.abspath(osp.join(osp.dirname(osp.realpath(__file__)), '../../data'))
     tmp_path = data_path + f'/{policy_name}'
     # set up logger
-    new_logger = configure(tmp_path, ["stdout"])#, "csv", "log", "json", "tensorboard"])
+    new_logger = configure(tmp_path, ["stdout", "csv", "log", "json", "tensorboard"])
     model.set_logger(new_logger)
 
     # callbacks
